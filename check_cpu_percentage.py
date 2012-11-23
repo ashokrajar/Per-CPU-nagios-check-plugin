@@ -2,7 +2,7 @@
 #
 '''
 Project     :       Per CPU Percentage Check
-Version     :       0.1
+Version     :       0.2
 Author      :       Ashok Raja R <ashokraja.linux@gmail.com>
 Summary     :       This program is a nagios plugin that checks Per CPU Utilization in Percentage
 Dependency  :       Linux-2.6.18/nagios/Python-2.6
@@ -28,6 +28,7 @@ cmd_parser = OptionParser(version="%prog 0.1")
 cmd_parser.add_option("-C", "--CPU", action="store", type="string", dest="cpu_name", help="Which CPU to be Check", metavar="cpu or cpu0 or cpu1")
 cmd_parser.add_option("-w", "--warning", type="int", action="store", dest="warning_per", help="Exit with WARNING status if higher than the PERCENT of CPU Usage", metavar="Warning Percentage")
 cmd_parser.add_option("-c", "--critical", type="int", action="store", dest="critical_per", help="Exit with CRITICAL status if higher than the PERCENT of CPU Usage", metavar="Critical Percentage")
+cmd_parser.add_option("-d", "--debug", action="store_true", dest="debug", default=False, help="enable debug")
 
 (cmd_options, cmd_args) = cmd_parser.parse_args()
 # Check the Command syntax
@@ -40,19 +41,41 @@ if not (cmd_options.cpu_name and cmd_options.warning_per and cmd_options.critica
 class CollectStat:
     """Object to Collect CPU Statistic Data"""
     def __init__(self,cpu_name):
+        
+        self.total = 0 
+        self.cpu_stat_dict = {}
+        
         for line in open("/proc/stat"):
             line = line.strip()
+        
             if line.startswith(cpu_name):
                 cpustat=line.split()
-                cpustat.pop(0)                  # Remove the First Array of the Line 'cpu'
+                cpustat.pop(0)              # Remove the First Array of the Line 'cpu'
+
+                # Remove the unwanted data from the array
+                # only retain first 8 field on the file
+                arrlen = len(cpustat)
+                if arrlen > 8:
+                    cpustat.pop()
+                    cpustat.pop()
+
+                if cmd_options.debug:
+                    print "DEBUG : cpustat array %s" % cpustat
+                        
                 cpustat=map(float, cpustat)     # Convert the Array to Float
-                self.cpu_stat_dict = {}
+
                 for i in range(len(cpustat)):
                     self.cpu_stat_dict[cpu_stat_var_array[i]] = cpustat[i]
-                self.total = 0 
+
+                # Calculate the total utilization
                 for i in cpustat:
                     self.total += i 
+
                 break
+
+        if cmd_options.debug:
+            print "DEBUG : cpu statistic dictionary %s" % self.cpu_stat_dict
+            print "DEBUG : total statistics %s" % self.total
 
 
 # Get Sample CPU Statistics 
@@ -61,6 +84,9 @@ time.sleep(5)
 final_stat = CollectStat(cmd_options.cpu_name)
 
 cpu_total_stat = final_stat.total - initial_stat.total
+
+if cmd_options.debug:
+    print "DEBUG : diff total stat %f" % cpu_total_stat
 
 
 for cpu_stat_var,cpu_stat in final_stat.cpu_stat_dict.items():
