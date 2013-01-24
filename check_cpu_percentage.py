@@ -54,7 +54,7 @@ class CollectStat:
 
                 # Remove the unwanted data from the array
                 # only retain first 8 field on the file
-		while len(cpustat) > 8:
+                while len(cpustat) > 8:
                     cpustat.pop()
 
                 if cmd_options.debug:
