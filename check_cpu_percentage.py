@@ -12,6 +12,8 @@ Usage :
 shell> python check_cpu_percentage.py -C cpu -w 70 -c 90
 '''
 
+import json
+import os
 import sys
 import time
 from optparse import OptionParser
@@ -53,6 +55,10 @@ cmd_parser.add_option("-s", "--sleep",
                       help="Sleep interval between measurements in seconds (default 15)",
                       metavar="SleepTime",
                       default=15)
+cmd_parser.add_option("", "--cache",
+                      type="string", action="store",
+                      dest="cache",
+                      default=None, help="Cache file for long time stats (disables sleep)"),
 cmd_parser.add_option("-d", "--debug",
                       action="store_true", dest="debug",
                       default=False, help="enable debug")
@@ -78,7 +84,6 @@ class CollectStat:
 
     def __init__(self, cpu_name):
 
-        self.total = 0
         self.cpu_stat_dict = {}
 
         with open("/proc/stat") as statsfile:
@@ -109,21 +114,60 @@ class CollectStat:
                         self.cpu_stat_dict[cpu_stat_var_array[i]] = cpustat[i]
 
                     # Calculate the total utilization
+                    self.cpu_stat_dict["total"] = 0
                     for i in cpustat:
-                        self.total += i
+                        self.cpu_stat_dict["total"] += i
 
                     break
 
         if cmd_options.debug:
             print("DEBUG : cpu statistic dictionary %s" % self.cpu_stat_dict)
-            print("DEBUG : total statistics %s" % self.total)
+            print("DEBUG : total statistics %s" % self.cpu_stat_dict["total"])
+
+    def load(self, filename):
+        try:
+            with open(cmd_options.cache, 'r') as handle:
+                self.cpu_stat_dict = json.loads(handle.read())
+        except IOError as err:
+            print('Could not read "%s" as cache file: %s' % (filename, err))
+            sys.exit(3)
+        except json.decoder.JSONDecodeError as err:
+            print('JSON-Error in "%s": %s' % (filename, err))
+
+    def dump(self, filename):
+        try:
+            with open(cmd_options.cache, 'w') as handle:
+                json.dump(self.cpu_stat_dict, handle)
+        except IOError as err:
+            print('Could not write "%s" as cache file: %s' % (filename, err))
+            sys.exit(3)
 
 # Get Sample CPU Statistics
 initial_stat = CollectStat(cmd_options.cpu_name)
-time.sleep(cmd_options.sleep_time)
+# Read cache file
+if cmd_options.cache:
+    if os.path.islink(cmd_options.cache):
+        print('Path "%s" is a link, exiting!' % cmd_options.cache)
+        sys.exit(3)
+    if os.path.exists(cmd_options.cache):
+        if os.path.isfile(cmd_options.cache):
+            if os.access(cmd_options.cache, os.W_OK):
+                initial_stat.load(cmd_options.cache)
+            else:
+                print('Could not write "%s" as cache file, exiting!' % cmd_options.cache)
+                sys.exit(3)
+        else:
+                print('Path "%s" is not a file, exiting!' % cmd_options.cache)
+                sys.exit(3)
+    else:
+        initial_stat.dump(cmd_options.cache)
+        print('Assuming first cached run - no cache found!')
+        sys.exit(3)
+else:
+    time.sleep(cmd_options.sleep_time)
 final_stat = CollectStat(cmd_options.cpu_name)
 
-cpu_total_stat = final_stat.total - initial_stat.total
+cpu_total_stat = final_stat.cpu_stat_dict["total"] - initial_stat.cpu_stat_dict["total"]
 
 if cmd_options.debug:
     print("DEBUG : diff total stat %f" % cpu_total_stat)
