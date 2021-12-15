@@ -22,6 +22,8 @@ from optparse import OptionParser
 # Mapping of CPU stat values to their 'meaning'
 cpu_stat_var_array = ('user', 'nice', 'system', 'idle',
                       'iowait', 'irq', 'softirq', 'steal_time')
+# Mapping returncodes to strings
+return_strings = ('OK', 'WARNING', 'CRITICAL', 'UNKNOWN')
 
 ###   Main code   ###
 # Command Line Arguments Parser
@@ -136,49 +138,28 @@ cpu_usage_percent = cpu_user_usage_percent + cpu_nice_usage_percent + cpu_system
 
 # Check if CPU Usage is Critical/Warning/OK
 if cpu_usage_percent >= cmd_options.critical_percent:
-    print(cmd_options.cpu_name,)
-    print('STATISTICS CRITICAL : total=%.2f%% user=%.2f%% system=%.2f%% iowait=%.2f%% steal=%.2f%% | user=%.2f system=%.2f iowait=%.2f steal=%.2f warn=%d crit=%d' % (
-        cpu_usage_percent,
-        cpu_user_usage_percent,
-        cpu_system_usage_percent,
-        cpu_iowait_usage_percent,
-        cpu_steal_time_usage_percent,
-        cpu_user_usage_percent,
-        cpu_system_usage_percent,
-        cpu_iowait_usage_percent,
-        cpu_steal_time_usage_percent,
-        cmd_options.warning_percent,
-        cmd_options.critical_percent))
-    sys.exit(2)
-
+    return_code = 2
 elif cpu_usage_percent >= cmd_options.warning_percent:
-    print(cmd_options.cpu_name,)
-    print('STATISTICS WARNING : total=%.2f%% user=%.2f%% system=%.2f%% iowait=%.2f%% steal=%.2f%% | user=%.2f system=%.2f iowait=%.2f steal=%.2f warn=%d crit=%d' % (
-        cpu_usage_percent,
-        cpu_user_usage_percent,
-        cpu_system_usage_percent,
-        cpu_iowait_usage_percent,
-        cpu_steal_time_usage_percent,
-        cpu_user_usage_percent,
-        cpu_system_usage_percent,
-        cpu_iowait_usage_percent,
-        cpu_steal_time_usage_percent,
-        cmd_options.warning_percent,
-        cmd_options.critical_percent))
-    sys.exit(1)
-
+    return_code = 1
 else:
-    print(cmd_options.cpu_name,)
-    print('STATISTICS OK : total=%.2f%% user=%.2f%% system=%.2f%% iowait=%.2f%% steal=%.2f%% | user=%.2f system=%.2f iowait=%.2f steal=%.2f warn=%d crit=%d' % (
-        cpu_usage_percent,
-        cpu_user_usage_percent,
-        cpu_system_usage_percent,
-        cpu_iowait_usage_percent,
-        cpu_steal_time_usage_percent,
-        cpu_user_usage_percent,
-        cpu_system_usage_percent,
-        cpu_iowait_usage_percent,
-        cpu_steal_time_usage_percent,
-        cmd_options.warning_percent,
-        cmd_options.critical_percent))
-    sys.exit(0)
+    return_code = 0
+
+# Output
+print('CPU STATISTICS %s: total=%.2f%% user=%.2f%% system=%.2f%% iowait=%.2f%% steal=%.2f%% | total=%.2f%%;%d;%d;0;100 user=%.2f%% system=%.2f%% iowait=%.2f%% steal=%.2f%%' % (
+    return_strings[return_code],
+    cpu_usage_percent,
+    cpu_user_usage_percent,
+    cpu_system_usage_percent,
+    cpu_iowait_usage_percent,
+    cpu_steal_time_usage_percent,
+    cpu_usage_percent,
+    cmd_options.warning_percent,
+    cmd_options.critical_percent,
+    cpu_user_usage_percent,
+    cpu_system_usage_percent,
+    cpu_iowait_usage_percent,
+    cpu_steal_time_usage_percent,))
+
+# Exit with returncode
+sys.exit(return_code)
+
